@@ -1,0 +1,97 @@
+version: "3"
+
+services:
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: ${MYSQL_USER}
+      # You can use whatever password you like
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MYSQL}
+    ports:
+      - ${MYSQL_PORT}:3306
+  # mssql:
+  #   image: mcr.microsoft.com/mssql/server:2017-latest
+  #   # image: mcr.microsoft.com/mssql/server
+  #   restart: always
+  #   environment:
+  #     MSSQL_PID: Express
+  #     MSSQL_DATABASE: ${MSSQL_DATABASE}
+  #     ACCEPT_EULA: Y
+  #     SA_PASSWORD: ${MSSQL_PASSWORD}
+  #   ports:
+  #     - 1433:1433
+  #   volumes:
+  #     - my-volume:/var/opt/mssql
+  postgres:
+    image: postgres
+    restart: always
+    ports:
+      - ${POSTGRES_PORT}:5432
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER} # The PostgreSQL user (useful to connect to the database)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # The PostgreSQL password (useful to connect to the database)
+      POSTGRES_DB: ${POSTGRES_DB} # The PostgreSQL default database (automatically created at first launch)
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - ${MONGO_ROOT_PORT}:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - ${MONGOEXPRESS_PORT}:8081
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: ${MONGO_ROOT_PORT}
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: false
+      ME_CONFIG_MONGODB_AUTH_DATABASE: admin
+      ME_CONFIG_MONGODB_AUTH_USERNAME: ${MONGO_ROOT_USER}
+      ME_CONFIG_MONGODB_AUTH_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGOEXPRESS_LOGIN}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGOEXPRESS_PASSWORD}
+    depends_on:
+      - mongo
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    # volumes:
+    #   - ~/volumes/jhipster/cobareact0elasticsearch/elasticsearch/:/usr/share/elasticsearch/data/
+    # If you want to expose these ports outside your dev PC,
+    # remove the "127.0.0.1:" prefix
+    ports:
+      - 127.0.0.1:9200:9200
+      - 127.0.0.1:9300:9300
+    environment:
+      - 'xpack.security.enabled=false'
+      - 'discovery.type=single-node'
+      - 'bootstrap.memory_lock=true'
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+
+volumes:
+  mysql:
+    driver: ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MYSQL}
+  mssql:
+    driver: ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MSSQL}
+  postgres:
+    driver: ${DATA_PATH_HOST}/${VOLUMES_DRIVER_POSTGRES}
+  mongo:
+    driver: ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MONGO}

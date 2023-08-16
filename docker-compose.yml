@@ -1,0 +1,188 @@
+version: "3"
+
+networks:
+  frontend:
+    driver: ${NETWORKS_DRIVER}
+  backend:
+    driver: ${NETWORKS_DRIVER}
+
+volumes:
+  mariadb:
+    driver: ${VOLUMES_DRIVER}
+  mysql:
+    driver: ${VOLUMES_DRIVER}
+  mssql:
+    driver: ${VOLUMES_DRIVER}
+  postgres:
+    driver: ${VOLUMES_DRIVER}
+  mongo:
+    driver: ${VOLUMES_DRIVER}
+  redis:
+    driver: ${VOLUMES_DRIVER}
+  memcached:
+    driver: ${VOLUMES_DRIVER}}
+  elasticsearch:
+    driver: ${VOLUMES_DRIVER}
+  sonarqube:
+    driver: ${VOLUMES_DRIVER}
+
+services:
+  ### MariaDB ##############################################
+  mariadb:
+    image: mariadb
+    volumes:
+      - ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MARIADB}
+    ports:
+      - "${MARIADB_PORT}:3306"
+    environment:
+      # TZ: ${TIMEZONE_UTC}
+      MYSQL_DATABASE: ${MARIADB_DATABASE}
+      MYSQL_USER: ${MARIADB_USER}
+      MYSQL_PASSWORD: ${MARIADB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+    networks:
+      - backend
+        
+  ### MySQL ################################################
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      # TZ: ${TIMEZONE_UTC}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: ${MYSQL_USER}
+      # You can use whatever password you like
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ${DATA_PATH_HOST}/${VOLUMES_DRIVER_MYSQL}
+    ports:
+      - ${MYSQL_PORT}:3306
+    networks:
+      - backend
+
+  ### Microsoft SQL Server ###########################################
+  # mssql:
+  #   image: mcr.microsoft.com/mssql/server:2017-latest
+  #   # image: mcr.microsoft.com/mssql/server
+  #   restart: always
+  #   environment:
+  #     MSSQL_PID: Express
+  #     MSSQL_DATABASE: ${MSSQL_DATABASE}
+  #     ACCEPT_EULA: Y
+  #     SA_PASSWORD: ${MSSQL_PASSWORD}
+  #   ports:
+  #     - 1433:1433
+  #   volumes:
+  #     - my-volume:/var/opt/mssql
+
+  ### PostgreSQL ###########################################
+  postgres:
+    image: postgres
+    restart: always
+    ports:
+      - ${POSTGRES_PORT}:5432
+    environment:
+        POSTGRES_DB: ${POSTGRES_DB} # The PostgreSQL default database (automatically created at first launch)
+        POSTGRES_USER: ${POSTGRES_USER} # The PostgreSQL user (useful to connect to the database)
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # The PostgreSQL password (useful to connect to the database)
+        GITLAB_POSTGRES_INIT: ${GITLAB_POSTGRES_INIT}
+        GITLAB_POSTGRES_USER: ${GITLAB_POSTGRES_USER}
+        GITLAB_POSTGRES_PASSWORD: ${GITLAB_POSTGRES_PASSWORD}
+        GITLAB_POSTGRES_DB: ${GITLAB_POSTGRES_DB}
+        KEYCLOAK_POSTGRES_INIT: ${KEYCLOAK_POSTGRES_INIT}
+        KEYCLOAK_POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER}
+        KEYCLOAK_POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD}
+        KEYCLOAK_POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB}
+        SONARQUBE_POSTGRES_INIT: ${SONARQUBE_POSTGRES_INIT}
+        SONARQUBE_POSTGRES_DB: ${SONARQUBE_POSTGRES_DB}
+        SONARQUBE_POSTGRES_USER: ${SONARQUBE_POSTGRES_USER}
+        SONARQUBE_POSTGRES_PASSWORD: ${SONARQUBE_POSTGRES_PASSWORD}
+    networks:
+      - backend
+
+  ### PostgreSQL PostGis ###################################
+  postgres-postgis:
+    build:
+      context: ./postgres-postgis
+      args:
+        - POSTGIS_VERSION=${POSTGIS_VERSION}
+        - INSTALL_PGSQL_HTTP_FOR_POSTGIS13=${POSTGIS_INSTALL_PGSQL_HTTP_FOR_POSTGIS13}
+    volumes:
+      - ${DATA_PATH_HOST}/postgres:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - backend
+
+  ### Mongo DB ##############################################
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - ${MONGO_ROOT_PORT}:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+
+  ### Mongo Express ##############################################
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - ${MONGOEXPRESS_PORT}:8081
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: ${MONGO_ROOT_PORT}
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: false
+      ME_CONFIG_MONGODB_AUTH_DATABASE: admin
+      ME_CONFIG_MONGODB_AUTH_USERNAME: ${MONGO_ROOT_USER}
+      ME_CONFIG_MONGODB_AUTH_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGOEXPRESS_LOGIN}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGOEXPRESS_PASSWORD}
+    depends_on:
+      - mongo
+  ### ElasticSearch ##############################################
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    # volumes:
+    #   - ~/volumes/jhipster/cobareact0elasticsearch/elasticsearch/:/usr/share/elasticsearch/data/
+    # If you want to expose these ports outside your dev PC,
+    # remove the "127.0.0.1:" prefix
+    ports:
+      - 127.0.0.1:9200:9200
+      - 127.0.0.1:9300:9300
+    environment:
+      - 'xpack.security.enabled=false'
+      - 'discovery.type=single-node'
+      - 'bootstrap.memory_lock=true'
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+  ### Kibana ##############################################
+  kibana:
+    build:
+      context: ./kibana
+      args:
+        - ELK_VERSION=${ELK_VERSION}
+    ports:
+      - "${KIBANA_HTTP_PORT}:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - frontend
+      - backend
